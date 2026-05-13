@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- Para níveis em inglês no HUD e no menu: lang="en" ou lang="en-US" -->
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Labirinto Mutante - Pixel Art</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- HUD principal (durante o jogo) -->
+        <div id="hud" class="hidden">
+            <div class="hud-item">
+                <span>MUDANÇA EM:</span>
+                <span id="timer-display">00:00</span>
+            </div>
+            <div class="hud-item">
+                <span>DIFICULDADE:</span>
+                <span id="diff-display">FÁCIL</span>
+            </div>
+            <div class="hud-actions">
+                <button type="button" id="btn-fullscreen" class="pixel-btn hud-action-btn" title="Tela cheia">⛶</button>
+                <button type="button" id="btn-quit" class="pixel-btn hud-action-btn">SAIR</button>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- Menu Inicial -->
+        <div id="main-menu" class="overlay">
+            <h1>PIXEL MAZE</h1>
+            <p>Fuja antes que as paredes mudem!</p>
+            <div class="menu-options">
+                <label for="difficulty">Nível:</label>
+                <select id="difficulty" class="pixel-select">
+                    <option value="easy">Fácil (4 min, Pequeno)</option>
+                    <option value="medium">Médio (3 min, Médio)</option>
+                    <option value="hard">Difícil (1:45, Grande)</option>
+                    <option value="impossible">Impossível (2 min, visão curta)</option>
+                </select>
+            </div>
+            <button id="btn-start" class="pixel-btn highlight">JOGAR</button>
+        </div>
+
+        <!-- Tela de Vitória -->
+        <div id="win-screen" class="overlay hidden">
+            <h1>VITÓRIA!</h1>
+            <p>Você escapou do labirinto.</p>
+            <button id="btn-restart" class="pixel-btn">JOGAR NOVAMENTE</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
