@@ -4,7 +4,7 @@
  */
 
 function createMulberry32(seed: number): () => number {
-  let a = seed >>> 0;
+  let a = seed >>> 0; // >>> significa deslocamento sem sinal de 0 bits
   return () => {
     a = (a + 0x6d2b79f5) | 0;
     let t = Math.imul(a ^ (a >>> 15), a | 1);

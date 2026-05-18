@@ -24,6 +24,7 @@ let visionBuffer = null;
  * @returns {HTMLCanvasElement}
  */
 function ensureVisionBuffer(w, h) {
+    // Se o buffer não existir ou se as dimensões não coincidirem, cria um novo buffer
     if (!visionBuffer || visionBuffer.width !== w || visionBuffer.height !== h) {
         visionBuffer = document.createElement('canvas');
         visionBuffer.width = w;
@@ -57,6 +58,7 @@ const PLAYER_SPRITE_SCALE = 0.88;
 
 /** @param {string} src */
 function loadPersonaSprite(src) {
+    // Cria uma nova imagem e define a fonte da imagem
     const im = new Image();
     im.src = src;
     return im;
@@ -545,6 +547,7 @@ function updatePlayerPhysics(dt) {
 }
 
 function checkWin() {
+    // Verifica se o jogador chegou à saída
     const ex = state.end.x + 0.5;
     const ey = state.end.y + 0.5;
     const dx = state.player.x - ex;
@@ -598,9 +601,12 @@ function update(dt) {
  * @param {number} ts
  */
 function drawGrassLayer(targetCtx, ts) {
+    // Obtém as dimensões do canvas
     const cw = targetCtx.canvas.width;
     const ch = targetCtx.canvas.height;
+    // Se a imagem da grama estiver completa, desenha a grama no canvas
     if (imgGrama.complete) {
+        // Desenha a grama no canvas
         for (let bgY = -ts; bgY < ch + ts; bgY += ts) {
             for (let bgX = -ts; bgX < cw + ts; bgX += ts) {
                 targetCtx.drawImage(imgGrama, bgX, bgY, ts, ts);
@@ -621,9 +627,11 @@ function drawGrassLayer(targetCtx, ts) {
  * @param {number} wallDropOffset
  */
 function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
+    // Desenha o labirinto
     for (let y = 0; y < state.rows; y++) {
         for (let x = 0; x < state.cols; x++) {
             if (state.map[y][x] === 1) {
+                // Se a imagem do muro estiver completa, desenha o muro no canvas
                 if (imgMuro.complete) {
                     targetCtx.drawImage(imgMuro, ox + x * ts, oy + y * ts + wallDropOffset, ts, ts);
                 } else {
@@ -631,6 +639,7 @@ function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
                     targetCtx.fillRect(ox + x * ts, oy + y * ts + wallDropOffset, ts, ts);
                 }
             } else {
+                // Se a imagem da grama estiver completa, desenha a grama no canvas
                 if (imgGrama.complete) {
                     targetCtx.drawImage(imgGrama, ox + x * ts, oy + y * ts, ts, ts);
                 } else {
@@ -641,9 +650,12 @@ function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
         }
     }
 
+    // Desenha o portão de entrada
     drawGateSprite(targetCtx, imgStart, state.start.x, state.start.y, ts, ox, oy, '#8b5a2b', 'ST');
+    // Desenha o portão de saída
     drawGateSprite(targetCtx, imgEnd, state.end.x, state.end.y, ts, ox, oy, '#e74c3c', 'FN');
 
+    // Desenha o jogador
     drawPlayerSprite(targetCtx, ts, ox, oy);
 }
 
@@ -660,17 +672,24 @@ function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
  * @param {string} fallbackLabel
  */
 function drawGateSprite(targetCtx, img, tileX, tileY, ts, ox, oy, fallbackFill, fallbackLabel) {
+    // Calcula as coordenadas do centro do portão
     const cx = ox + (tileX + 0.5) * ts;
     const cy = oy + (tileY + 0.5) * ts;
     const size = ts * GATE_SPRITE_SCALE;
+    // Calcula as coordenadas do canto superior esquerdo do portão
     const x = cx - size / 2;
     const y = cy - size / 2;
 
+    // Salva o estado do contexto
     targetCtx.save();
+    // Desabilita o suavização de imagem
     targetCtx.imageSmoothingEnabled = false;
+    // Se a imagem do portão estiver completa, desenha o portão no canvas
     if (img.complete && img.naturalWidth > 0) {
+        // Desenha o portão no canvas
         targetCtx.drawImage(img, x, y, size, size);
     } else {
+        // Se a imagem do portão não estiver completa, desenha um retângulo preto no canvas
         targetCtx.fillStyle = fallbackFill;
         targetCtx.fillRect(x, y, size, size);
         targetCtx.fillStyle = '#fff';
@@ -689,6 +708,7 @@ function drawGateSprite(targetCtx, img, tileX, tileY, ts, ox, oy, fallbackFill, 
  * @param {number} oy
  */
 function drawPlayerSprite(targetCtx, ts, ox, oy) {
+    // Calcula a largura e altura do sprite do jogador
     const w = ts * PLAYER_SPRITE_SCALE;
     const h = ts * PLAYER_SPRITE_SCALE;
     const pcx = ox + state.player.x * ts;
