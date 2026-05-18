@@ -214,8 +214,13 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="border-t border-neutral-900 py-12 mt-32 text-center text-neutral-500 text-sm">
+      <footer className="border-t border-neutral-900 py-12 mt-32 text-center text-neutral-500 text-sm space-y-2">
         <p>Desenvolvido com Next.js & TailwindCSS. Awwwards Style Edition.</p>
+        <p>
+          <a href="/desenvolvedores" className="text-emerald-500/80 hover:text-emerald-400 transition-colors">
+            Conheça a equipe de desenvolvimento
+          </a>
+        </p>
       </footer>
       
       <style dangerouslySetInnerHTML={{__html: `

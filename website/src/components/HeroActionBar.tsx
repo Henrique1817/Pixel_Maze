@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowRight, Gamepad2 } from "lucide-react";
+import { ArrowRight, Gamepad2, Users } from "lucide-react";
 
 const PLAY_GAME_HREF = "/api/game/index.html";
 
@@ -54,6 +54,13 @@ export default function HeroActionBar() {
       >
         <ArrowRight size={18} className="text-emerald-500/80" />
         <span>Níveis & demos</span>
+      </a>
+      <a
+        href="/desenvolvedores"
+        className="inline-flex items-center justify-center space-x-2 px-8 py-4 bg-neutral-900 border border-neutral-800 hover:border-emerald-500/30 text-white font-medium uppercase tracking-wider transition-all duration-300 rounded-sm text-sm"
+      >
+        <Users size={18} className="text-emerald-500/80" />
+        <span>Equipe</span>
       </a>
     </div>
   );

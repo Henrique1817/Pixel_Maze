@@ -48,6 +48,13 @@ imgStart.src = 'Sprites/Sem_fundo/start-removebg-preview.png';
 const imgEnd = new Image();
 imgEnd.src = 'Sprites/Sem_fundo/end-removebg-preview.png';
 
+/** Escala visual dos portões (1 = um tile; centrado no tile). */
+const GATE_SPRITE_SCALE = 1.85;
+/** Raio extra de luz nos portões no modo impossível (multiplicador de ts). */
+const GATE_VISION_MARK_SCALE = 2.5;
+/** Largura/altura do sprite do jogador em fração do tile. */
+const PLAYER_SPRITE_SCALE = 0.88;
+
 /** @param {string} src */
 function loadPersonaSprite(src) {
     const im = new Image();
@@ -55,7 +62,7 @@ function loadPersonaSprite(src) {
     return im;
 }
 
-/** Pares [frame0, frame1]; sprites sem fundo em `Sprites/persona/Sem fundo/`. */
+/** Pares [frame0, frame1]; sprites sem fundo. */
 const PERSONA_BASE = 'Sprites/persona/Sem%20fundo';
 
 const PLAYER_WALK = {
@@ -79,224 +86,6 @@ const PLAYER_WALK = {
 
 /** ms por troca de frame ao andar */
 const PLAYER_WALK_FRAME_MS = 88;
-
-const compConfigs = [
-    // Plantas e arbustos pequenos (1x1 bloco)
-    { file: "amazonica-removebg-preview.png", sizeX: 1, sizeY: 1, offY: 0 },
-    { file: "arbusto-removebg-preview.png", sizeX: 1, sizeY: 1, offY: 0 },
-    { file: "rosa-removebg-preview.png", sizeX: 1, sizeY: 1, offY: 0 },
-    { file: "samambaia-removebg-preview.png", sizeX: 1, sizeY: 1, offY: 0 },
-
-    // Árvores médias (2x2 blocos)
-    { file: "arvore_comum-removebg-preview.png", sizeX: 2, sizeY: 2, offY: 1 },
-    { file: "pinheiro_medio-1-removebg-preview.png", sizeX: 2, sizeY: 2, offY: 1 },
-
-    // Árvores grandes (2x3 blocos)
-    { file: "arvore_grande-removebg-preview.png", sizeX: 2, sizeY: 3, offY: 2 },
-    { file: "arvore_grande_2-removebg-preview.png", sizeX: 2, sizeY: 3, offY: 2 },
-    { file: "pinheiro_grande_2-removebg-preview.png", sizeX: 2, sizeY: 3, offY: 2 }
-];
-
-const decorationsConfigs = compConfigs.map(conf => {
-    const img = new Image();
-    img.src = `Sprites/Sem_fundo/${conf.file}`;
-    return { img, sizeX: conf.sizeX, sizeY: conf.sizeY, offY: conf.offY };
-});
-
-// ==========================================
-// POSICIONAMENTO MANUAL DE DECORAÇÕES (opcional; somado ao anel procedural)
-// col/row em índices de tile; negativos = fora à esquerda/cima; imgIndex → compConfigs
-// ==========================================
-const manualDecorations = [
-    { col: 4, row: -3, imgIndex: 1 },
-    { col: 8, row: -2, imgIndex: 1 },
-    { col: 12, row: -2, imgIndex: 5 },
-    { col: -3, row: 2, imgIndex: 8 },
-    { col: -3, row: 4, imgIndex: 7 },
-    { col: -2, row: 5, imgIndex: 6 },
-    { col: 20, row: -2, imgIndex: 1 },
-    { col: 22, row: 4, imgIndex: 6 },
-    { col: -10, row: 5, imgIndex: 7 }
-];
-
-/** @param {number} imgIndex */
-function decorationFootprint(imgIndex) {
-    const c = decorationsConfigs[imgIndex];
-    if (!c) return { sizeX: 1, sizeY: 1, offY: 0 };
-    return { sizeX: c.sizeX, sizeY: c.sizeY, offY: c.offY };
-}
-
-/**
- * Retângulo de células ocupadas pela sprite (âncora col,row como no draw).
- * @param {number} col
- * @param {number} row
- * @param {number} imgIndex
- */
-function decorationOccupiedCells(col, row, imgIndex) {
-    const { sizeX, sizeY, offY } = decorationFootprint(imgIndex);
-    const top = row - offY;
-    /** @type {string[]} */
-    const keys = [];
-    for (let y = top; y < top + sizeY; y++) {
-        for (let x = col; x < col + sizeX; x++) {
-            keys.push(`${x},${y}`);
-        }
-    }
-    return keys;
-}
-
-/**
- * @param {Set<string>} occupied
- * @param {number} col
- * @param {number} row
- * @param {number} imgIndex
- */
-function canPlaceDecoration(occupied, col, row, imgIndex) {
-    if (imgIndex < 0 || imgIndex >= decorationsConfigs.length) return false;
-    for (const k of decorationOccupiedCells(col, row, imgIndex)) {
-        if (occupied.has(k)) return false;
-    }
-    return true;
-}
-
-/**
- * @param {Set<string>} occupied
- * @param {number} col
- * @param {number} row
- * @param {number} imgIndex
- */
-function stampDecoration(occupied, col, row, imgIndex) {
-    for (const k of decorationOccupiedCells(col, row, imgIndex)) {
-        occupied.add(k);
-    }
-    const config = decorationsConfigs[imgIndex];
-    state.decorations.push({
-        col,
-        row,
-        img: config.img,
-        sizeX: config.sizeX,
-        sizeY: config.sizeY,
-        offY: config.offY
-    });
-}
-
-/** Hash determinístico 0..m-1 */
-function decorHash(col, row, salt) {
-    return (((col * 92821) ^ (row * 48271) ^ (salt * 12345)) >>> 0) % 1000000;
-}
-
-/**
- * Fora do retângulo do labirinto [0,cols) x [0,rows), mas dentro de uma coroa limitada.
- */
-function isOutsideMaze(col, row) {
-    return col < 0 || col >= state.cols || row < 0 || row >= state.rows;
-}
-
-/**
- * Escolhe índice em compConfigs: mais arbustos/plantas, menos árvores grandes.
- * @param {number} col
- * @param {number} row
- * @param {'large'|'medium'|'small'} tier
- */
-function pickRingSpriteIndex(col, row, tier) {
-    const h = decorHash(col, row, tier.charCodeAt(0)) % 1000;
-    if (tier === 'large') {
-        return 6 + (h % 3);
-    }
-    if (tier === 'medium') {
-        return 4 + (h % 2);
-    }
-    return h % 4;
-}
-
-/**
- * Espessura do anel e rarefação da vegetação em função do ecrã vs. labirinto (em pixels).
- * @returns {{ pad: number, skipBits: number }}
- */
-function getVegetationRingScreenMetrics() {
-    const ts = Math.max(1, state.tileSize);
-    const cols = state.cols;
-    const rows = state.rows;
-    const cw = canvas.width;
-    const ch = canvas.height;
-    const mazePxW = cols * ts;
-    const mazePxH = rows * ts;
-    const freeX = Math.max(0, cw - mazePxW);
-    const freeY = Math.max(0, ch - mazePxH);
-    const marginTiles = Math.max(Math.ceil(freeX / (2 * ts)), Math.ceil(freeY / (2 * ts)), 0);
-
-    const basePad = 5 + Math.floor(Math.min(cols, rows) / 10);
-    const screenExtra = Math.floor(marginTiles * 0.9);
-    const pad = Math.min(48, Math.max(basePad, basePad + screenExtra));
-
-    const screenArea = Math.max(1, cw * ch);
-    const mazeArea = mazePxW * mazePxH;
-    const r = mazeArea / screenArea;
-    let skipBits = 3;
-    if (r < 0.18) skipBits = 15;
-    else if (r < 0.32) skipBits = 7;
-    else if (r < 0.52) skipBits = 3;
-    else skipBits = 3;
-
-    return { pad, skipBits };
-}
-
-/**
- * Preenche anel ao redor do labirinto com vegetação (determinístico por posição).
- * @param {Set<string>} occupied
- */
-function generateRingVegetation(occupied) {
-    const cols = state.cols;
-    const rows = state.rows;
-    const { pad, skipBits } = getVegetationRingScreenMetrics();
-    const minC = -pad;
-    const maxC = cols + pad - 1;
-    const minR = -pad;
-    const maxR = rows + pad - 1;
-
-    /** @type {{col:number,row:number,priority:number,tier:'large'|'medium'|'small'}[]} */
-    const candidates = [];
-    for (let r = minR; r <= maxR; r++) {
-        for (let c = minC; c <= maxC; c++) {
-            if (!isOutsideMaze(c, r)) continue;
-            const distH = c < 0 ? -c : c >= cols ? c - cols + 1 : Infinity;
-            const distV = r < 0 ? -r : r >= rows ? r - rows + 1 : Infinity;
-            const distOut = Math.min(distH, distV);
-            const h = decorHash(c, r, 1);
-            if ((h & skipBits) === 0 && distOut > 2) continue;
-            const corner = (c < cols * 0.25 || c > cols * 0.75) && (r < rows * 0.25 || r > rows * 0.75);
-            let priority = distOut * 10 + ((h >> 2) & 7);
-            if (corner) priority -= 15;
-            let tier = /** @type {'large'|'medium'|'small'} */ ('small');
-            if (distOut <= 2 && (h % 4) === 0) tier = 'large';
-            else if (distOut <= 6 && (h % 3) === 0) tier = 'medium';
-            else if (corner && (h % 4) === 1) tier = 'medium';
-            candidates.push({ col: c, row: r, priority, tier });
-        }
-    }
-
-    candidates.sort((a, b) => a.priority - b.priority);
-
-    for (const cand of candidates) {
-        const idx = pickRingSpriteIndex(cand.col, cand.row, cand.tier);
-        if (!canPlaceDecoration(occupied, cand.col, cand.row, idx)) continue;
-        stampDecoration(occupied, cand.col, cand.row, idx);
-    }
-}
-
-function generateDecorations() {
-    state.decorations = [];
-    /** @type {Set<string>} */
-    const occupied = new Set();
-
-    for (const manual of manualDecorations) {
-        if (manual.imgIndex < 0 || manual.imgIndex >= decorationsConfigs.length) continue;
-        if (!canPlaceDecoration(occupied, manual.col, manual.row, manual.imgIndex)) continue;
-        stampDecoration(occupied, manual.col, manual.row, manual.imgIndex);
-    }
-
-    generateRingVegetation(occupied);
-}
 
 // Elementos da UI
 const mainMenu = document.getElementById('main-menu');
@@ -377,7 +166,7 @@ let state = {
     difficulty: 'easy',
     cols: 15,
     rows: 15,
-    tileSize: 32,
+    tileSize: 32, // tile é a unidade de medida do labirinto
     offsetX: 0,
     offsetY: 0,
     /** @type {number[][]} */
@@ -389,8 +178,6 @@ let state = {
     end: { x: 13, y: 13 },
     timeLeft: 0,
     lastTime: 0,
-    /** @type {Array<{col: number, row: number, img: HTMLImageElement, sizeX: number, sizeY: number, offY: number}>} */
-    decorations: [],
     isMutating: false,
     mutationTimer: 0
 };
@@ -485,8 +272,8 @@ function startGame() {
     const conf = CONFIG[state.difficulty];
     state.cols = conf.cols;
     state.rows = conf.rows;
-    state.timeLeft = conf.time;
-    state.lastTime = performance.now();
+    state.timeLeft = conf.time; // tempo restante em segundos
+    state.lastTime = performance.now(); // tempo da última atualização
     
     if (diffDisplay) diffDisplay.textContent = levelText(state.difficulty, 'hud');
     
@@ -509,19 +296,40 @@ function showMenu() {
     mainMenu?.classList.remove('hidden');
 }
 
+/**
+ * Margens só para enquadrar o labirinto (portões e shake).
+ * @returns {{ marginX: number, marginTop: number, marginBottom: number }}
+ */
+function getMazeLayoutMargins() {
+    const gateOut = (GATE_SPRITE_SCALE - 1) * 0.5 + 0.55;
+    return {
+        marginX: 2,
+        marginTop: 2,
+        marginBottom: 2 + gateOut + 1
+    };
+}
+
 function calculateTileSize() {
     const hudHeight = getHudReservedHeight();
+    const availW = canvas.width;
+    const availH = Math.max(1, canvas.height - hudHeight);
+    const { marginX, marginTop, marginBottom } = getMazeLayoutMargins();
 
-    // Calcula o tamanho ideal do tile para caber no canvas centralizado
-    const maxTileW = canvas.width / state.cols;
-    const maxTileH = (canvas.height - hudHeight) / state.rows;
-    state.tileSize = Math.floor(Math.min(maxTileW, maxTileH));
-    
-    // Calcula offsets para centralizar (empurrando o labirinto para baixo do HUD)
-    state.offsetX = Math.floor((canvas.width - (state.cols * state.tileSize)) / 2);
-    state.offsetY = hudHeight + Math.floor((canvas.height - hudHeight - (state.rows * state.tileSize)) / 2);
+    const worldW = state.cols + marginX * 2;
+    const worldH = state.rows + marginTop + marginBottom;
 
-    generateDecorations();
+    state.tileSize = Math.max(18, Math.floor(Math.min(availW / worldW, availH / worldH)));
+
+    const ts = state.tileSize;
+    const mazePxW = state.cols * ts;
+    const mazePxH = state.rows * ts;
+    const worldPxH = worldH * ts;
+
+    state.offsetX = Math.floor((canvas.width - mazePxW) / 2);
+    state.offsetY =
+        hudHeight +
+        Math.floor((availH - worldPxH) / 2) +
+        marginTop * ts;
 }
 
 /**
@@ -546,13 +354,14 @@ function shuffleArray(arr) {
 function generateMaze() {
     state.map = Array(state.rows).fill(0).map(() => Array(state.cols).fill(1));
 
-    const strideX = Math.floor((state.cols - 1) / 2);
-    const V = strideX * Math.floor((state.rows - 1) / 2);
+    const strideX = Math.floor((state.cols - 1) / 2); // largura do labirinto em tiles
+    const V = strideX * Math.floor((state.rows - 1) / 2); // número de células no labirinto
 
     const parent = new Uint32Array(V);
     for (let i = 0; i < V; i++) parent[i] = i;
 
     function find(i) {
+        // encontrar o representante da célula i, 
         let r = i;
         while (parent[r] !== r) r = parent[r];
         let x = i;
@@ -804,7 +613,7 @@ function drawGrassLayer(targetCtx, ts) {
 }
 
 /**
- * Decorações, labirinto, início, fim e jogador.
+ * Labirinto, início, fim e jogador.
  * @param {CanvasRenderingContext2D} targetCtx
  * @param {number} ts
  * @param {number} ox
@@ -812,14 +621,6 @@ function drawGrassLayer(targetCtx, ts) {
  * @param {number} wallDropOffset
  */
 function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
-    for (const dec of state.decorations) {
-        if (dec.img.complete) {
-            const drawX = ox + dec.col * ts;
-            const drawY = oy + dec.row * ts - dec.offY * ts;
-            targetCtx.drawImage(dec.img, drawX, drawY, ts * dec.sizeX, ts * dec.sizeY);
-        }
-    }
-
     for (let y = 0; y < state.rows; y++) {
         for (let x = 0; x < state.cols; x++) {
             if (state.map[y][x] === 1) {
@@ -840,27 +641,45 @@ function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
         }
     }
 
-    if (imgStart.complete) {
-        targetCtx.drawImage(imgStart, ox + state.start.x * ts, oy + state.start.y * ts, ts, ts);
-    } else {
-        targetCtx.fillStyle = '#8b5a2b';
-        targetCtx.fillRect(ox + state.start.x * ts, oy + state.start.y * ts, ts, ts);
-        targetCtx.fillStyle = '#fff';
-        targetCtx.font = `${ts / 3}px "Press Start 2P"`;
-        targetCtx.textAlign = 'center';
-        targetCtx.fillText('ST', ox + state.start.x * ts + ts / 2, oy + state.start.y * ts + ts / 2);
-    }
-
-    if (imgEnd.complete) {
-        targetCtx.drawImage(imgEnd, ox + state.end.x * ts, oy + state.end.y * ts, ts, ts);
-    } else {
-        targetCtx.fillStyle = '#e74c3c';
-        targetCtx.fillRect(ox + state.end.x * ts, oy + state.end.y * ts, ts, ts);
-        targetCtx.fillStyle = '#fff';
-        targetCtx.fillText('FN', ox + state.end.x * ts + ts / 2, oy + state.end.y * ts + ts / 2);
-    }
+    drawGateSprite(targetCtx, imgStart, state.start.x, state.start.y, ts, ox, oy, '#8b5a2b', 'ST');
+    drawGateSprite(targetCtx, imgEnd, state.end.x, state.end.y, ts, ox, oy, '#e74c3c', 'FN');
 
     drawPlayerSprite(targetCtx, ts, ox, oy);
+}
+
+/**
+ * Portão de entrada/saída centrado no tile (só visual; colisão não muda).
+ * @param {CanvasRenderingContext2D} targetCtx
+ * @param {HTMLImageElement} img
+ * @param {number} tileX
+ * @param {number} tileY
+ * @param {number} ts
+ * @param {number} ox
+ * @param {number} oy
+ * @param {string} fallbackFill
+ * @param {string} fallbackLabel
+ */
+function drawGateSprite(targetCtx, img, tileX, tileY, ts, ox, oy, fallbackFill, fallbackLabel) {
+    const cx = ox + (tileX + 0.5) * ts;
+    const cy = oy + (tileY + 0.5) * ts;
+    const size = ts * GATE_SPRITE_SCALE;
+    const x = cx - size / 2;
+    const y = cy - size / 2;
+
+    targetCtx.save();
+    targetCtx.imageSmoothingEnabled = false;
+    if (img.complete && img.naturalWidth > 0) {
+        targetCtx.drawImage(img, x, y, size, size);
+    } else {
+        targetCtx.fillStyle = fallbackFill;
+        targetCtx.fillRect(x, y, size, size);
+        targetCtx.fillStyle = '#fff';
+        targetCtx.font = `${Math.max(8, size / 4)}px "Press Start 2P"`;
+        targetCtx.textAlign = 'center';
+        targetCtx.textBaseline = 'middle';
+        targetCtx.fillText(fallbackLabel, cx, cy);
+    }
+    targetCtx.restore();
 }
 
 /**
@@ -870,9 +689,8 @@ function drawGameplayLayer(targetCtx, ts, ox, oy, wallDropOffset) {
  * @param {number} oy
  */
 function drawPlayerSprite(targetCtx, ts, ox, oy) {
-    const pad = ts * 0.15;
-    const w = ts - pad * 2;
-    const h = ts - pad * 2;
+    const w = ts * PLAYER_SPRITE_SCALE;
+    const h = ts * PLAYER_SPRITE_SCALE;
     const pcx = ox + state.player.x * ts;
     const pcy = oy + state.player.y * ts;
 
@@ -938,7 +756,7 @@ function drawImpossibleDarkWithLights(ts, ox, oy, shakeX, shakeY, wallDropOffset
     const ey = oy + (state.end.y + 0.5) * ts;
 
     const rVision = Math.max(ts * 3.15, Math.min(w, h) * 0.095);
-    const rMark = Math.max(ts * 1.95, 42);
+    const rMark = Math.max(ts * GATE_VISION_MARK_SCALE, 48);
 
     ctx.save();
     ctx.beginPath();
